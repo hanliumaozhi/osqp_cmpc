@@ -5,8 +5,10 @@
 #ifndef OSQP_CMPC_OSQP_SOLVER_H
 #define OSQP_CMPC_OSQP_SOLVER_H
 
+#include <iostream>
 #include <eigen3/Eigen/Dense>
 #include <memory>
+#include "iosqp.hpp"
 
 #include "robot_state.h"
 
@@ -45,9 +47,16 @@ namespace CMPC {
         Matrix<double, Dynamic, Dynamic> S;
         Matrix<double, Dynamic, 1> X_d;
         Matrix<double, Dynamic, 1> U_b;
+        Matrix<double, Dynamic, 1> L_b;
         Matrix<double, Dynamic, Dynamic> fmat;
         Matrix<double, Dynamic, Dynamic> qH;
         Matrix<double, Dynamic, 1> qg;
+
+        Matrix<double, Dynamic, Dynamic> osqp_P;
+        Matrix<double, Dynamic, 1> osqp_q;
+        Matrix<double, Dynamic, 1> U_b_red;
+        Matrix<double, Dynamic, 1> L_b_red;
+        Matrix<double, Dynamic, Dynamic> A_red;
 
         Matrix<double, Dynamic, Dynamic> eye_12h;
 
@@ -58,6 +67,8 @@ namespace CMPC {
         Matrix<double, 3, 3> I_world;
         Matrix<double, 13, 13> A_ct;
         Matrix<double, 13, 12> B_ct_r;
+
+        Matrix<double, 12, 1> q_soln;
 
         uint8_t var_elim[2000];
         uint8_t con_elim[2000];
@@ -75,7 +86,7 @@ namespace CMPC {
 
         void solve_mpc();
 
-        void quat_to_rpy(Quaternionf q, Matrix<double, 3, 1> &rpy);
+        void quat_to_rpy(Quaterniond q, Matrix<double, 3, 1> &rpy);
 
         void ct_ss_mats(Matrix<double, 3, 3> I_world, double m, Matrix<double, 3, 4> r_feet, Matrix<double, 3, 3> R_yaw,
                         Matrix<double, 13, 13> &A, Matrix<double, 13, 12> &B, double x_drag);
@@ -84,8 +95,13 @@ namespace CMPC {
 
         void c2qp(Matrix<double, 13, 13> Ac, Matrix<double, 13, 12> Bc, double dt, int horizon);
 
-        double sq(double x) { return x * x; }
+        static double sq(double x) { return x * x; }
 
+        static bool near_zero(double a) {return (a<0.01 && a >-0.01);}
+
+        static bool near_one(double a){ return near_zero(a-1);}
+
+        //std::shared_ptr<IOSQP> osqp_ptr;
 
     };
 }

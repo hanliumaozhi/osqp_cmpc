@@ -10,6 +10,7 @@ namespace CMPC {
     OSQPSolver::OSQPSolver() {
         update_ = std::make_shared<update_data_t>();
         rs_ = std::make_shared<RobotState>();
+        //osqp_ptr = std::make_shared<IOSQP>();
     }
 
     void OSQPSolver::set_problem(double dt, int horizon, double mu, double f_max) {
@@ -36,14 +37,32 @@ namespace CMPC {
         U_b.resize(20 * horizon, Eigen::NoChange);
         mcount += 20 * horizon;
 
+        L_b.resize(20 * horizon, Eigen::NoChange);
+        mcount += 20 * horizon;
+
+        /*U_b_red.resize(20 * horizon, Eigen::NoChange);
+        mcount += 20 * horizon;
+
+        L_b_red.resize(20 * horizon, Eigen::NoChange);
+        mcount += 20 * horizon;*/
+
         fmat.resize(20 * horizon, 12 * horizon);
         mcount += 20 * 12 * h2;
+
+        //A_red.resize(20 * horizon, 12 * horizon);
+        //mcount += 20 * 12 * h2;
 
         qH.resize(12 * horizon, 12 * horizon);
         mcount += 12 * 12 * h2;
 
+        //osqp_P.resize(12 * horizon, 12 * horizon);
+        //mcount += 12 * 12 * h2;
+
         qg.resize(12 * horizon, Eigen::NoChange);
         mcount += 12 * horizon;
+
+        //osqp_q.resize(12 * horizon, Eigen::NoChange);
+        //mcount += 12 * horizon;
 
         eye_12h.resize(12 * horizon, 12 * horizon);
         mcount += 12 * 12 * horizon;
@@ -91,70 +110,170 @@ namespace CMPC {
 
 
         //QP matrices
-        c2qp(A_ct,B_ct_r, dt_, horizon_);
+        c2qp(A_ct, B_ct_r, dt_, horizon_);
 
         //weights
         Matrix<double, 13, 1> full_weight;
-        for(int i = 0; i < 12; i++)
+        for (int i = 0; i < 12; i++)
             full_weight(i) = update_->weights[i];
         full_weight(12) = 0.f;
         S.diagonal() = full_weight.replicate(horizon_, 1);
 
         //trajectory
-        for(int i = 0; i < horizon_; i++)
-        {
-            for(int j = 0; j < 12; j++)
-                X_d(13*i+j,0) = update_->traj[12*i+j];
+        for (int i = 0; i < horizon_; i++) {
+            for (int j = 0; j < 12; j++)
+                X_d(13 * i + j, 0) = update_->traj[12 * i + j];
         }
 
         //note - I'm not doing the shifting here.
         int k = 0;
-        for(int i = 0; i < horizon_; i++)
-        {
-            for(int j = 0; j < 4; j++)
-            {
-                U_b(5*k + 0) = 5e10;
-                U_b(5*k + 1) = 5e10;
-                U_b(5*k + 2) = 5e10;
-                U_b(5*k + 3) = 5e10;
-                U_b(5*k + 4) = update_->gait[i*4 + j] * f_max_;
+        for (int i = 0; i < horizon_; i++) {
+            for (int j = 0; j < 4; j++) {
+                U_b(5 * k + 0) = 5e10;
+                U_b(5 * k + 1) = 5e10;
+                U_b(5 * k + 2) = 5e10;
+                U_b(5 * k + 3) = 5e10;
+                U_b(5 * k + 4) = update_->gait[i * 4 + j] * f_max_;
                 k++;
             }
         }
 
-        double mu = 1.f/mu_;
+        double mu = 1.f / mu_;
         Matrix<double, 5, 3> f_block;
 
-        f_block <<  mu, 0,  1.f,
-                -mu, 0,  1.f,
-                0,  mu, 1.f,
+        f_block << mu, 0, 1.f,
+                -mu, 0, 1.f,
+                0, mu, 1.f,
                 0, -mu, 1.f,
-                0,   0, 1.f;
+                0, 0, 1.f;
 
-        for(int i = 0; i < horizon_*4; i++)
-        {
-            fmat.block(i*5,i*3,5,3) = f_block;
+        for (int i = 0; i < horizon_ * 4; i++) {
+            fmat.block(i * 5, i * 3, 5, 3) = f_block;
         }
 
-        qH = 2*(B_qp.transpose()*S*B_qp + update_->alpha*eye_12h);
-        qg = 2*B_qp.transpose()*S*(A_qp*x_0 - X_d);
+        qH = 2 * (B_qp.transpose() * S * B_qp + update_->alpha * eye_12h);
+        qg = 2 * B_qp.transpose() * S * (A_qp * x_0 - X_d);
+
+        for (int i = 0; i < horizon_ * 20; i++) {
+            L_b(i) = 0.0;
+        }
 
         //reduce
 
-        int num_constraints = 20*horizon_;
-        int num_variables = 12*horizon_;
+        int num_constraints = 20 * horizon_;
+        int num_variables = 12 * horizon_;
 
         int new_vars = num_variables;
         int new_cons = num_constraints;
 
-        for(int i =0; i < num_constraints; i++)
+        for (int i = 0; i < num_constraints; i++)
             con_elim[i] = 0;
 
-        for(int i = 0; i < num_variables; i++)
+        for (int i = 0; i < num_variables; i++)
             var_elim[i] = 0;
+
+        for (int i = 0; i < num_constraints; i++) {
+            if (not(near_zero(U_b(i)) && near_zero(L_b(i)))) continue;
+
+            for (int j = 0; j < num_variables; ++j) {
+                if (near_one(fmat(i, j))) {
+                    new_vars -= 3;
+                    new_cons -= 5;
+                    int cs = (j * 5) / 3 - 3;
+                    var_elim[j - 2] = 1;
+                    var_elim[j - 1] = 1;
+                    var_elim[j] = 1;
+                    con_elim[cs] = 1;
+                    con_elim[cs + 1] = 1;
+                    con_elim[cs + 2] = 1;
+                    con_elim[cs + 3] = 1;
+                    con_elim[cs + 4] = 1;
+                }
+            }
+
+        }
+
+        int var_ind[new_vars];
+        int con_ind[new_cons];
+        int vc = 0;
+        for (int i = 0; i < num_variables; i++) {
+            if (!var_elim[i]) {
+                if (vc >= new_vars) {
+                    printf("BAD ERROR 1\n");
+                }
+                var_ind[vc] = i;
+                vc++;
+            }
+        }
+        vc = 0;
+        for (int i = 0; i < num_constraints; i++) {
+            if (!con_elim[i]) {
+                if (vc >= new_cons) {
+                    printf("BAD ERROR 1\n");
+                }
+                con_ind[vc] = i;
+                vc++;
+            }
+        }
+
+        osqp_P.resize(new_vars, new_vars);
+        osqp_q.resize(new_vars, Eigen::NoChange);
+
+        //reduce
+        for (int i = 0; i < new_vars; i++) {
+            int olda = var_ind[i];
+            osqp_q[i] = qg[olda];
+            for (int j = 0; j < new_vars; j++) {
+                int oldb = var_ind[j];
+                osqp_P(i, j) = qH(olda, oldb);
+            }
+        }
+
+
+        A_red.resize(new_vars / 3 * 5, new_vars);
+
+
+        for (int con = 0; con < new_cons; con++) {
+            for (int st = 0; st < new_vars; st++) {
+                float cval = fmat(con_ind[con], var_ind[st]);
+                A_red(con, st) = cval;
+            }
+        }
+
+        U_b_red.resize(new_vars / 3 * 5, Eigen::NoChange);
+        L_b_red.resize(new_vars / 3 * 5, Eigen::NoChange);
+
+        for (int i = 0; i < new_cons; i++) {
+            int old = con_ind[i];
+            U_b_red[i] = U_b[old];
+            L_b_red[i] = L_b[old];
+        }
+
+        IOSQP osqp;
+        Eigen::SparseMatrix<double> p_sparse = osqp_P.sparseView();
+        //auto q_sparse = osqp_q.sparseView();
+        Eigen::SparseMatrix<double> a_sparse = A_red.sparseView();
+
+        osqp.setMats(p_sparse, osqp_q, a_sparse, L_b_red, U_b_red);
+
+        osqp.solve();
+        //std::cout<<osqp.getStatus()<<std::endl;
+
+        Eigen::VectorXd q_red = osqp.getPrimalSol();
+        vc = 0;
+        for (int i = 0; i < 12; i++) {
+            if (var_elim[i]) {
+                q_soln[i] = 0.0;
+            } else {
+                q_soln[i] = q_red[vc];
+                vc++;
+            }
+        }
+
+
     }
 
-    void OSQPSolver::quat_to_rpy(Quaternionf q, Matrix<double, 3, 1> &rpy) {
+    void OSQPSolver::quat_to_rpy(Quaterniond q, Matrix<double, 3, 1> &rpy) {
         //edge case!
         double as = std::min(-2. * (q.x() * q.z() - q.w() * q.y()), .99999);
         rpy(0) = atan2(2.f * (q.x() * q.y() + q.w() * q.z()), sq(q.w()) + sq(q.x()) - sq(q.y()) - sq(q.z()));
@@ -164,7 +283,7 @@ namespace CMPC {
     }
 
 
-    Matrix<double, 3, 3> OSQPSolver::cross_mat(Matrix<double, 3, 3> I_inv, Matrix<double, 3, 1> r){
+    Matrix<double, 3, 3> OSQPSolver::cross_mat(Matrix<double, 3, 3> I_inv, Matrix<double, 3, 1> r) {
         Matrix<double, 3, 3> cm;
         cm << 0.f, -r(2), r(1),
                 r(2), 0.f, -r(0),
@@ -193,34 +312,30 @@ namespace CMPC {
         }
     }
 
-    void OSQPSolver::c2qp(Matrix<double, 13, 13> Ac, Matrix<double, 13, 12> Bc, double dt, int horizon)
-    {
+    void OSQPSolver::c2qp(Matrix<double, 13, 13> Ac, Matrix<double, 13, 12> Bc, double dt, int horizon) {
         ABc.setZero();
-        ABc.block(0,0,13,13) = Ac;
-        ABc.block(0,13,13,12) = Bc;
-        ABc = dt*ABc;
+        ABc.block(0, 0, 13, 13) = Ac;
+        ABc.block(0, 13, 13, 12) = Bc;
+        ABc = dt * ABc;
         expmm = ABc.exp();
-        Adt = expmm.block(0,0,13,13);
-        Bdt = expmm.block(0,13,13,12);
-        if(horizon > 19) {
+        Adt = expmm.block(0, 0, 13, 13);
+        Bdt = expmm.block(0, 13, 13, 12);
+        if (horizon > 19) {
             throw std::runtime_error("horizon is too long!");
         }
 
         Matrix<double, 13, 13> powerMats[20];
         powerMats[0].setIdentity();
-        for(int i = 1; i < horizon+1; i++) {
-            powerMats[i] = Adt * powerMats[i-1];
+        for (int i = 1; i < horizon + 1; i++) {
+            powerMats[i] = Adt * powerMats[i - 1];
         }
 
-        for(int r = 0; r < horizon; r++)
-        {
-            A_qp.block(13*r,0,13,13) = powerMats[r+1];//Adt.pow(r+1);
-            for(int c = 0; c < horizon; c++)
-            {
-                if(r >= c)
-                {
-                    int a_num = r-c;
-                    B_qp.block(13*r,12*c,13,12) = powerMats[a_num] /*Adt.pow(a_num)*/ * Bdt;
+        for (int r = 0; r < horizon; r++) {
+            A_qp.block(13 * r, 0, 13, 13) = powerMats[r + 1];//Adt.pow(r+1);
+            for (int c = 0; c < horizon; c++) {
+                if (r >= c) {
+                    int a_num = r - c;
+                    B_qp.block(13 * r, 12 * c, 13, 12) = powerMats[a_num] /*Adt.pow(a_num)*/ * Bdt;
                 }
             }
         }

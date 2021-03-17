@@ -8,7 +8,7 @@
 #include <eigen3/Eigen/Dense>
 
 using Eigen::Matrix;
-using Eigen::Quaternionf;
+using Eigen::Quaterniond;
 
 namespace CMPC {
     class RobotState {
@@ -22,7 +22,7 @@ namespace CMPC {
         Matrix<double,3,3> R;
         Matrix<double,3,3> R_yaw;
         Matrix<double,3,3> I_body;
-        Quaternionf q;
+        Quaterniond q;
         double yaw;
         double m = 12.454;
 
