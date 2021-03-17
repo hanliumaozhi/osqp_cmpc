@@ -6,16 +6,16 @@ int main() {
 
     osqp_solver.set_problem(0.026, 10, 0.4, 120);
 
-    double p[3] = {0, 0, 0.3};
-    double v[3] = {0, 0, 0};
-    double q[4] = {1, 0, 0, 0};
-    double w[3] = {0, 0, 0};
-    double r[12] = {0.183, 0.183, -0.183, -0.183, -0.14, 0.14, -0.14, 0.14, -0.3, -0.3, -0.3, -0.3};
-    double yaw = 0;
+    float p[3] = {0, 0, 0.3};
+    float v[3] = {0, 0, 0};
+    float q[4] = {1, 0, 0, 0};
+    float w[3] = {0, 0, 0};
+    float r[12] = {0.183, 0.183, -0.183, -0.183, -0.14, 0.14, -0.14, 0.14, -0.3, -0.3, -0.3, -0.3};
+    float yaw = 0;
 
-    double trajAll[120];
+    float trajAll[120];
 
-    double trajInitial[12] = {0,  // 0
+    float trajInitial[12] = {0,  // 0
                              0,    // 1
                              0,    // 2
             //yawStart,    // 2
@@ -48,8 +48,8 @@ int main() {
         }
     }
 
-    double Q[12] = {0.25, 2, 10, 50, 50, 100, 0, 0, 0.3, 0.2, 0.2, 0.1};
-    double alpha = 4e-5;
+    float Q[12] = {0.25, 2, 10, 50, 50, 100, 0, 0, 0.3, 0.2, 0.2, 0.1};
+    float alpha = 4e-5;
 
     int mpc_table[40];
     for (int i = 0; i < 10; ++i) {

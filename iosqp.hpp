@@ -43,10 +43,10 @@ public:
     const float UNBOUNDED_VAL;
 
     inline c_int setMats(Eigen::SparseMatrix<float> &P,
-                         Eigen::VectorXd &q,
+                         Eigen::VectorXf &q,
                          Eigen::SparseMatrix<float> &A,
-                         Eigen::VectorXd &l,
-                         Eigen::VectorXd &u)
+                         Eigen::VectorXf &l,
+                         Eigen::VectorXf &u)
     {
         if (pWork)
             osqp_cleanup(pWork);
@@ -90,7 +90,7 @@ public:
         //pSettings->eps_abs = eps_abs;
         //pSettings->eps_rel = eps_rel;
         pSettings->alpha = 1;
-        pSettings->verbose = 0;
+        pSettings->verbose = 1;
 
         c_int exitflag = osqp_setup(&pWork, pData, pSettings);
 
@@ -112,9 +112,9 @@ public:
         return pWork->info->status_val;
     }
 
-    inline Eigen::VectorXd getPrimalSol() const
+    inline Eigen::VectorXf getPrimalSol() const
     {
-        return Eigen::Map<const Eigen::VectorXd>(pWork->solution->x,
+        return Eigen::Map<const Eigen::VectorXf>(pWork->solution->x,
                                                  pWork->data->n);
     }
 

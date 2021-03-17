@@ -258,7 +258,7 @@ namespace CMPC {
         osqp.solve();
         //std::cout<<osqp.getStatus()<<std::endl;
 
-        Eigen::VectorXd q_red = osqp.getPrimalSol();
+        Eigen::VectorXf q_red = osqp.getPrimalSol();
         //std::cout<<q_red<<std::endl;
         vc = 0;
         for (int i = 0; i < 12; i++) {
