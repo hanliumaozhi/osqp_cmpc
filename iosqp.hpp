@@ -40,11 +40,11 @@ public:
             c_free(pData);
     }
 
-    const double UNBOUNDED_VAL;
+    const float UNBOUNDED_VAL;
 
-    inline c_int setMats(Eigen::SparseMatrix<double> &P,
+    inline c_int setMats(Eigen::SparseMatrix<float> &P,
                          Eigen::VectorXd &q,
-                         Eigen::SparseMatrix<double> &A,
+                         Eigen::SparseMatrix<float> &A,
                          Eigen::VectorXd &l,
                          Eigen::VectorXd &u)
     {
@@ -90,7 +90,7 @@ public:
         //pSettings->eps_abs = eps_abs;
         //pSettings->eps_rel = eps_rel;
         pSettings->alpha = 1;
-        pSettings->verbose = 1;
+        pSettings->verbose = 0;
 
         c_int exitflag = osqp_setup(&pWork, pData, pSettings);
 

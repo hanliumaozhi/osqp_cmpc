@@ -11,7 +11,7 @@ namespace CMPC {
         //osqp_ptr = std::make_shared<IOSQP>();
     }
 
-    void OSQPSolver::set_problem(double dt, int horizon, double mu, double f_max) {
+    void OSQPSolver::set_problem(float dt, int horizon, float mu, float f_max) {
 
         dt_ = dt;
         horizon_ = horizon;
@@ -80,26 +80,26 @@ namespace CMPC {
     }
 
     void
-    OSQPSolver::update_problem_data(double *p, double *v, double *q, double *w, double *r, double yaw, double *weights,
-                                    double *state_trajectory, double alpha, int *gait) {
+    OSQPSolver::update_problem_data(float *p, float *v, float *q, float *w, float *r, float yaw, float *weights,
+                                    float *state_trajectory, float alpha, int *gait) {
         update_.alpha = alpha;
         update_.yaw = yaw;
 
         memcpy((void *) update_.gait, (void *) gait, sizeof(int) * 4 * horizon_);
-        memcpy((void *) update_.p, (void *) p, sizeof(double) * 3);
-        memcpy((void *) update_.v, (void *) v, sizeof(double) * 3);
-        memcpy((void *) update_.q, (void *) q, sizeof(double) * 4);
-        memcpy((void *) update_.w, (void *) w, sizeof(double) * 3);
-        memcpy((void *) update_.r, (void *) r, sizeof(double) * 12);
-        memcpy((void *) update_.weights, (void *) weights, sizeof(double) * 12);
-        memcpy((void *) update_.traj, (void *) state_trajectory, sizeof(double) * 12 * horizon_);
+        memcpy((void *) update_.p, (void *) p, sizeof(float) * 3);
+        memcpy((void *) update_.v, (void *) v, sizeof(float) * 3);
+        memcpy((void *) update_.q, (void *) q, sizeof(float) * 4);
+        memcpy((void *) update_.w, (void *) w, sizeof(float) * 3);
+        memcpy((void *) update_.r, (void *) r, sizeof(float) * 12);
+        memcpy((void *) update_.weights, (void *) weights, sizeof(float) * 12);
+        memcpy((void *) update_.traj, (void *) state_trajectory, sizeof(float) * 12 * horizon_);
 
     }
 
     void OSQPSolver::solve_mpc() {
         rs_.set(update_.p, update_.v, update_.q, update_.w, update_.r, update_.yaw);
         //roll pitch yaw
-        Matrix<double, 3, 1> rpy;
+        Matrix<float, 3, 1> rpy;
         quat_to_rpy(rs_.q, rpy);
 
         x_0 << rpy(2), rpy(1), rpy(0), rs_.p, rs_.w, rs_.v, -9.8f;
@@ -112,7 +112,7 @@ namespace CMPC {
         c2qp(A_ct, B_ct_r, dt_, horizon_);
 
         //weights
-        Matrix<double, 13, 1> full_weight;
+        Matrix<float, 13, 1> full_weight;
         for (int i = 0; i < 12; i++)
             full_weight(i) = update_.weights[i];
         full_weight(12) = 0.f;
@@ -137,8 +137,8 @@ namespace CMPC {
             }
         }
 
-        double mu = 1.f / mu_;
-        Matrix<double, 5, 3> f_block;
+        float mu = 1.f / mu_;
+        Matrix<float, 5, 3> f_block;
 
         f_block << mu, 0, 1.f,
                 -mu, 0, 1.f,
@@ -249,9 +249,9 @@ namespace CMPC {
         }
 
         IOSQP osqp;
-        Eigen::SparseMatrix<double> p_sparse = osqp_P.sparseView();
+        Eigen::SparseMatrix<float> p_sparse = osqp_P.sparseView();
         //auto q_sparse = osqp_q.sparseView();
-        Eigen::SparseMatrix<double> a_sparse = A_red.sparseView();
+        Eigen::SparseMatrix<float> a_sparse = A_red.sparseView();
 
         osqp.setMats(p_sparse, osqp_q, a_sparse, L_b_red, U_b_red);
 
@@ -273,9 +273,9 @@ namespace CMPC {
         //std::cout<<q_soln<<std::endl;
     }
 
-    void OSQPSolver::quat_to_rpy(Quaterniond q, Matrix<double, 3, 1> &rpy) {
+    void OSQPSolver::quat_to_rpy(Quaternionf q, Matrix<float, 3, 1> &rpy) {
         //edge case!
-        double as = std::min(-2. * (q.x() * q.z() - q.w() * q.y()), .99999);
+        float as = std::min(-2. * (q.x() * q.z() - q.w() * q.y()), .99999);
         rpy(0) = atan2(2.f * (q.x() * q.y() + q.w() * q.z()), sq(q.w()) + sq(q.x()) - sq(q.y()) - sq(q.z()));
         rpy(1) = asin(as);
         rpy(2) = atan2(2.f * (q.y() * q.z() + q.w() * q.x()), sq(q.w()) - sq(q.x()) - sq(q.y()) + sq(q.z()));
@@ -283,17 +283,17 @@ namespace CMPC {
     }
 
 
-    Matrix<double, 3, 3> OSQPSolver::cross_mat(Matrix<double, 3, 3> I_inv, Matrix<double, 3, 1> r) {
-        Matrix<double, 3, 3> cm;
+    Matrix<float, 3, 3> OSQPSolver::cross_mat(Matrix<float, 3, 3> I_inv, Matrix<float, 3, 1> r) {
+        Matrix<float, 3, 3> cm;
         cm << 0.f, -r(2), r(1),
                 r(2), 0.f, -r(0),
                 -r(1), r(0), 0.f;
         return I_inv * cm;
     }
 
-    void OSQPSolver::ct_ss_mats(Matrix<double, 3, 3> I_world, double m, Matrix<double, 3, 4> r_feet,
-                                Matrix<double, 3, 3> R_yaw, Matrix<double, 13, 13> &A, Matrix<double, 13, 12> &B,
-                                double x_drag) {
+    void OSQPSolver::ct_ss_mats(Matrix<float, 3, 3> I_world, float m, Matrix<float, 3, 4> r_feet,
+                                Matrix<float, 3, 3> R_yaw, Matrix<float, 13, 13> &A, Matrix<float, 13, 12> &B,
+                                float x_drag) {
         A.setZero();
         A(3, 9) = 1.f;
         A(11, 9) = x_drag;
@@ -304,15 +304,15 @@ namespace CMPC {
         A.block(0, 6, 3, 3) = R_yaw.transpose();
 
         B.setZero();
-        Matrix<double, 3, 3> I_inv = I_world.inverse();
+        Matrix<float, 3, 3> I_inv = I_world.inverse();
 
         for (int b = 0; b < 4; b++) {
             B.block(6, b * 3, 3, 3) = cross_mat(I_inv, r_feet.col(b));
-            B.block(9, b * 3, 3, 3) = Matrix<double, 3, 3>::Identity() / m;
+            B.block(9, b * 3, 3, 3) = Matrix<float, 3, 3>::Identity() / m;
         }
     }
 
-    void OSQPSolver::c2qp(Matrix<double, 13, 13> Ac, Matrix<double, 13, 12> Bc, double dt, int horizon) {
+    void OSQPSolver::c2qp(Matrix<float, 13, 13> Ac, Matrix<float, 13, 12> Bc, float dt, int horizon) {
         ABc.setZero();
         ABc.block(0, 0, 13, 13) = Ac;
         ABc.block(0, 13, 13, 12) = Bc;
@@ -324,7 +324,7 @@ namespace CMPC {
             throw std::runtime_error("horizon is too long!");
         }
 
-        Matrix<double, 13, 13> powerMats[20];
+        Matrix<float, 13, 13> powerMats[20];
         powerMats[0].setIdentity();
         for (int i = 1; i < horizon + 1; i++) {
             powerMats[i] = Adt * powerMats[i - 1];

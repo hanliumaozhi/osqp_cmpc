@@ -5,7 +5,7 @@
 #include "robot_state.h"
 
 namespace CMPC{
-    void RobotState::set(double *p_, double *v_, double *q_, double *w_, double *r_, double yaw_) {
+    void RobotState::set(float *p_, float *v_, float *q_, float *w_, float *r_, float yaw_) {
         for(int i = 0; i < 3; i++)
         {
             this->p(i) = p_[i];
@@ -25,14 +25,14 @@ namespace CMPC{
                 this->r_feet(rs,c) = r_[rs*4 + c];
 
         R = this->q.toRotationMatrix();
-        double yc = cos(yaw_);
-        double ys = sin(yaw_);
+        float yc = cos(yaw_);
+        float ys = sin(yaw_);
 
         R_yaw <<  yc,  -ys,   0,
                 ys,  yc,   0,
                 0,   0,   1;
 
-        Matrix<double, 3, 1> Id;
+        Matrix<float, 3, 1> Id;
         Id << 0.04264025f, 0.2571403f, 0.2800529f;
         I_body.diagonal() = Id;
     }

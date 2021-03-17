@@ -8,21 +8,21 @@
 #include <eigen3/Eigen/Dense>
 
 using Eigen::Matrix;
-using Eigen::Quaterniond;
+using Eigen::Quaternionf;
 
 namespace CMPC {
     struct RobotState {
-        void set(double* p, double* v, double* q, double* w, double* r, double yaw);
+        void set(float* p, float* v, float* q, float* w, float* r, float yaw);
         //void compute_rotations();
         //void print();
-        Matrix<double,3,1> p,v,w;
-        Matrix<double,3,4> r_feet;
-        Matrix<double,3,3> R;
-        Matrix<double,3,3> R_yaw;
-        Matrix<double,3,3> I_body;
-        Quaterniond q;
-        double yaw;
-        double m = 12.454;
+        Matrix<float,3,1> p,v,w;
+        Matrix<float,3,4> r_feet;
+        Matrix<float,3,3> R;
+        Matrix<float,3,3> R_yaw;
+        Matrix<float,3,3> I_body;
+        Quaternionf q;
+        float yaw;
+        float m = 12.454;
 
     };
 }
