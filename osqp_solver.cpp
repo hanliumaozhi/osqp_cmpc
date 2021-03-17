@@ -8,12 +8,11 @@
 
 namespace CMPC {
     OSQPSolver::OSQPSolver() {
-        update_ = std::make_shared<update_data_t>();
-        rs_ = std::make_shared<RobotState>();
         //osqp_ptr = std::make_shared<IOSQP>();
     }
 
     void OSQPSolver::set_problem(double dt, int horizon, double mu, double f_max) {
+
         dt_ = dt;
         horizon_ = horizon;
         mu_ = mu;
@@ -83,30 +82,30 @@ namespace CMPC {
     void
     OSQPSolver::update_problem_data(double *p, double *v, double *q, double *w, double *r, double yaw, double *weights,
                                     double *state_trajectory, double alpha, int *gait) {
-        update_->alpha = alpha;
-        update_->yaw = yaw;
+        update_.alpha = alpha;
+        update_.yaw = yaw;
 
-        memcpy((void *) update_->gait, (void *) gait, sizeof(int) * 4 * horizon_);
-        memcpy((void *) update_->p, (void *) p, sizeof(double) * 3);
-        memcpy((void *) update_->v, (void *) v, sizeof(double) * 3);
-        memcpy((void *) update_->q, (void *) q, sizeof(double) * 4);
-        memcpy((void *) update_->w, (void *) w, sizeof(double) * 3);
-        memcpy((void *) update_->r, (void *) r, sizeof(double) * 12);
-        memcpy((void *) update_->weights, (void *) weights, sizeof(double) * 12);
-        memcpy((void *) update_->traj, (void *) state_trajectory, sizeof(double) * 12 * horizon_);
+        memcpy((void *) update_.gait, (void *) gait, sizeof(int) * 4 * horizon_);
+        memcpy((void *) update_.p, (void *) p, sizeof(double) * 3);
+        memcpy((void *) update_.v, (void *) v, sizeof(double) * 3);
+        memcpy((void *) update_.q, (void *) q, sizeof(double) * 4);
+        memcpy((void *) update_.w, (void *) w, sizeof(double) * 3);
+        memcpy((void *) update_.r, (void *) r, sizeof(double) * 12);
+        memcpy((void *) update_.weights, (void *) weights, sizeof(double) * 12);
+        memcpy((void *) update_.traj, (void *) state_trajectory, sizeof(double) * 12 * horizon_);
 
     }
 
     void OSQPSolver::solve_mpc() {
-        rs_->set(update_->p, update_->v, update_->q, update_->w, update_->r, update_->yaw);
+        rs_.set(update_.p, update_.v, update_.q, update_.w, update_.r, update_.yaw);
         //roll pitch yaw
         Matrix<double, 3, 1> rpy;
-        quat_to_rpy(rs_->q, rpy);
+        quat_to_rpy(rs_.q, rpy);
 
-        x_0 << rpy(2), rpy(1), rpy(0), rs_->p, rs_->w, rs_->v, -9.8f;
-        I_world = rs_->R_yaw * rs_->I_body * rs_->R_yaw.transpose();
+        x_0 << rpy(2), rpy(1), rpy(0), rs_.p, rs_.w, rs_.v, -9.8f;
+        I_world = rs_.R_yaw * rs_.I_body * rs_.R_yaw.transpose();
 
-        ct_ss_mats(I_world, rs_->m, rs_->r_feet, rs_->R_yaw, A_ct, B_ct_r, update_->x_drag);
+        ct_ss_mats(I_world, rs_.m, rs_.r_feet, rs_.R_yaw, A_ct, B_ct_r, update_.x_drag);
 
 
         //QP matrices
@@ -115,14 +114,14 @@ namespace CMPC {
         //weights
         Matrix<double, 13, 1> full_weight;
         for (int i = 0; i < 12; i++)
-            full_weight(i) = update_->weights[i];
+            full_weight(i) = update_.weights[i];
         full_weight(12) = 0.f;
         S.diagonal() = full_weight.replicate(horizon_, 1);
 
         //trajectory
         for (int i = 0; i < horizon_; i++) {
             for (int j = 0; j < 12; j++)
-                X_d(13 * i + j, 0) = update_->traj[12 * i + j];
+                X_d(13 * i + j, 0) = update_.traj[12 * i + j];
         }
 
         //note - I'm not doing the shifting here.
@@ -133,7 +132,7 @@ namespace CMPC {
                 U_b(5 * k + 1) = 5e10;
                 U_b(5 * k + 2) = 5e10;
                 U_b(5 * k + 3) = 5e10;
-                U_b(5 * k + 4) = update_->gait[i * 4 + j] * f_max_;
+                U_b(5 * k + 4) = update_.gait[i * 4 + j] * f_max_;
                 k++;
             }
         }
@@ -151,7 +150,7 @@ namespace CMPC {
             fmat.block(i * 5, i * 3, 5, 3) = f_block;
         }
 
-        qH = 2 * (B_qp.transpose() * S * B_qp + update_->alpha * eye_12h);
+        qH = 2 * (B_qp.transpose() * S * B_qp + update_.alpha * eye_12h);
         qg = 2 * B_qp.transpose() * S * (A_qp * x_0 - X_d);
 
         for (int i = 0; i < horizon_ * 20; i++) {
@@ -260,6 +259,7 @@ namespace CMPC {
         //std::cout<<osqp.getStatus()<<std::endl;
 
         Eigen::VectorXd q_red = osqp.getPrimalSol();
+        //std::cout<<q_red<<std::endl;
         vc = 0;
         for (int i = 0; i < 12; i++) {
             if (var_elim[i]) {
@@ -270,7 +270,7 @@ namespace CMPC {
             }
         }
 
-
+        //std::cout<<q_soln<<std::endl;
     }
 
     void OSQPSolver::quat_to_rpy(Quaterniond q, Matrix<double, 3, 1> &rpy) {

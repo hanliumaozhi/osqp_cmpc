@@ -38,6 +38,7 @@ namespace CMPC {
     class OSQPSolver {
     public:
         OSQPSolver();
+        ~OSQPSolver() = default;
 
         Matrix<double, Dynamic, 13> A_qp;
         Matrix<double, Dynamic, Dynamic> B_qp;
@@ -60,8 +61,9 @@ namespace CMPC {
 
         Matrix<double, Dynamic, Dynamic> eye_12h;
 
-        std::shared_ptr<update_data_t> update_;
-        std::shared_ptr<RobotState> rs_;
+        update_data_t update_;
+        //std::shared_ptr<RobotState> rs_;
+        RobotState rs_;
 
         Matrix<double, 13, 1> x_0;
         Matrix<double, 3, 3> I_world;

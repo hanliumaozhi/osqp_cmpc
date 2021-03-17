@@ -11,9 +11,7 @@ using Eigen::Matrix;
 using Eigen::Quaterniond;
 
 namespace CMPC {
-    class RobotState {
-
-    public:
+    struct RobotState {
         void set(double* p, double* v, double* q, double* w, double* r, double yaw);
         //void compute_rotations();
         //void print();
