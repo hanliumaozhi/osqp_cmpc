@@ -88,6 +88,10 @@ namespace CMPC {
 
         void solve_mpc();
 
+        void update_x_drag(float x_drag) {
+            update_.x_drag = x_drag;
+        }
+
         void quat_to_rpy(Quaterniond q, Matrix<double, 3, 1> &rpy);
 
         void ct_ss_mats(Matrix<double, 3, 3> I_world, double m, Matrix<double, 3, 4> r_feet, Matrix<double, 3, 3> R_yaw,
