@@ -1,4 +1,5 @@
 #include "osqp_solver.h"
+#include <chrono>
 
 int main() {
     CMPC::OSQPSolver osqp_solver;
@@ -65,7 +66,13 @@ int main() {
         }
     }
 
+    auto t0 = std::chrono::high_resolution_clock::now();
     osqp_solver.update_problem_data(p, v, q, w, r, yaw, Q, trajAll, alpha, mpc_table);
     osqp_solver.solve_mpc();
+    auto t1 = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<float> fs = t1 - t0;
+    std::chrono::microseconds d = std::chrono::duration_cast<std::chrono::microseconds>(fs);
+    std::cout << d.count() << std::endl;
     return 0;
 }
